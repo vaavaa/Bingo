@@ -11,14 +11,17 @@ contour_distance = 50
 ignor_hierarchy = 0
 contour_area = 2500
 
+rotate_image = 1
+rotate_image_clockwize = 1
+
 img_name = 'IMG_20151225_152224.jpg'
 img_name = 'IMG_20151225_152236.jpg'
 #img_name = 'IMG_20151225_152213.jpg'
 #img_name = '3480087_7943.jpg'
-#img_name = '34.jpg'
+#img_name = 'Captcha.png'
 
 def is_numeric(s):
-    '''Returns True for all non-unicode numbers'''
+    # Returns True for all non-unicode numbers
     try:
         s = s.decode('utf-8')
     except:
@@ -131,177 +134,136 @@ def rotate_about_center(src, angle, scale=1.):
     rot_mat[1,2] += rot_move[1]
     return cv2.warpAffine(src, rot_mat, (int(math.ceil(nw)), int(math.ceil(nh))), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255, 0))
 
+def read_text_by_image():
+    im = cv2.imread(img_name)
 
-im = cv2.imread(img_name)
+    im3 = im.copy()
 
-im3 = im.copy()
+    gray = cv2.cvtColor(im,cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray,(5, 5), 0)
+    cv2.imwrite("blur.jpg", blur) 
 
-gray = cv2.cvtColor(im,cv2.COLOR_BGR2GRAY)
-blur = cv2.GaussianBlur(gray,(5,5),0)
-cv2.imwrite("blur.jpg",blur) 
-
-#cv2.imshow('blur',blur)
-#key = cv2.waitKey(0)
-#thresh = cv2.adaptiveThreshold(blur,255,1,1,5,1)
-_,thresh=cv2.threshold(blur, thresh_val, 255, cv2.THRESH_BINARY)
-cv2.imshow('thresh',thresh)
-key = cv2.waitKey(0)
-
-im_thresh = thresh.copy()
-#cv2.imshow('norm1',im4)
-
-
-contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-#print hierarchy
-hierarchy = hierarchy[0]
-#print hierarchy
-
-
-cnts = filter_contours(contours, hierarchy)
-contours = filter_contours(contours, hierarchy, contour_area)
-
-LENGTH = len(contours)
-status = np.zeros((LENGTH,1))
-
-for i, cnt1 in enumerate(contours):
-    x = i    
-    if i != LENGTH-1:
-        for j, cnt2 in enumerate(contours[i+1:]):
-            x = x + 1
-            dist = find_if_close(cnt1, cnt2)
-            if dist == True:
-                val = min(status[i],status[x])
-                status[x] = status[i] = val
-            else:
-                if status[x] == status[i]:
-                    status[x] = i + 1
-
-unified = []
-r_text = []
-maximum = int(status.max())+1
-
-#print status
-
-
-
-for i in xrange(maximum):
-    pos = np.where(status == i)[0]
-    if pos.size != 0:
-        cont = np.vstack(contours[i] for i in pos)
-        hull = cv2.convexHull(cont)
-        unified.append(hull)
-
-        # Angle of one of the contours
-        # todo - need to calc avg angle of all joined contours
-        rect = cv2.minAreaRect(contours[i])
-        ((x1,y1),(w1,h1),angle) = rect
-        #print rect
-        
-        box = cv2.cv.BoxPoints(rect)
-        box = np.int0(box)
-        #cv2.drawContours(im,[box],0,(0,255,0),2)
-
-       
-
-        # Bounding Rect of joined contours
-        [x,y,w,h] = cv2.boundingRect(hull)
-        cv2.rectangle(im,(x,y),(x+w,y+h),(0,0,255),2)
-
-        # Print angle to the source image
-        #font = cv2.FONT_HERSHEY_SIMPLEX
-        #cv2.putText(im, str(int(angle)) ,(int((x+w)/2), int((y+h)/2)), font, 1,(0,0,255),2)
-
-        # Crop joined contours image
-        im_crop = im_thresh[y:y+h, x:x+w]
-
-        # Rotate cropped image to angle
-        im_crop_rotated = rotate_about_center(im_crop, angle)
-        cv2.imwrite("croped.jpg", im_crop_rotated)
-        
-        # Text recognition
-        txt = read_image()
-        r_text.append(txt)
-        
-        #cv2.imshow('croped', im_crop_rotated)
-        #key = cv2.waitKey(0)
-
-        angles = [90, 180,  270]
-        for index in range(len(angles)):
-            #print 'angle :', angles[index]
-
-            im_crop_rotated_to_angle = rotate_about_center(im_crop_rotated, angles[index])
-            cv2.imwrite("croped.jpg", im_crop_rotated_to_angle)
-            
-            #Text recognition
-            txt = read_image()
-            r_text.append(txt)
-
-            #cv2.imshow('rotated', im_crop_rotated_to_angle)
-            #key = cv2.waitKey(0)
-        
-        #cv2.imshow('croped', im_crop_rotated1)
-        #key = cv2.waitKey(0)
-        
-# Draw convex contours
-cv2.drawContours(im, unified,-1,(0,255,0),2)
-
-#cv2.drawContours(thresh,unified,-1,255,-1)
-
-print r_text
-
-for str_val in r_text:
-    
-    if is_numeric(str_val):
-        print 'Detected number: ', str_val
-
-        
-print "complete"
-
-cv2.imshow('final', im)
-key = cv2.waitKey(0)
-
-'''
-for cnt in cnts:
-
-    [x,y,w,h] = cv2.boundingRect(cnt)
-    cv2.rectangle(im,(x,y),(x+w,y+h),(0,0,255),2)   
-
-    rect = cv2.minAreaRect(cnt)
-
-    ((x1,y1),(x2,y2),angle) = rect
-    print angle
-    box = cv2.cv.BoxPoints(rect)
-    box = np.int0(box)
-    cv2.drawContours(im,[box],0,(0,255,0),2)
-    #print box
-            
-    #roi = thresh[y:y+h,x:x+w]
-    #roismall = cv2.resize(roi,(10,10))
-
-    im_crop = im_thresh[y:y+h,x:x+w]
-    cv2.imwrite("croped.jpg", im_crop)
-            
-            
-    img = Image.open("croped.jpg")
-    a = image_to_string(img)
-    a = a.strip(" ")
-    print a
-
-    font = cv2.FONT_HERSHEY_SIMPLEX
-            
-    cv2.putText(im, str(int(angle)) ,(int(x1),int(y1)), font, 1,(0,0,255),2)
-            
-    #cv2.imshow('croped',rotateImage(im_crop,angle))
+    #cv2.imshow('blur',blur)
     #key = cv2.waitKey(0)
     
+    #thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    _,thresh=cv2.threshold(blur, thresh_val, 255, cv2.THRESH_BINARY)
+    
+    cv2.imshow('thresh',thresh)
     key = cv2.waitKey(0)
 
-    if key == 27:  # (escape to quit)
-        sys.exit()
+    im_thresh = thresh.copy()
+    #cv2.imshow('norm1',im4)
 
 
-cv2.imwrite("final.jpg",im)                
-cv2.imshow('final',im)
-key = cv2.waitKey(0)
-'''
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    #print hierarchy
+    hierarchy = hierarchy[0]
+    #print hierarchy
+
+
+    cnts = filter_contours(contours, hierarchy)
+    contours = filter_contours(contours, hierarchy, contour_area)
+
+    LENGTH = len(contours)
+    status = np.zeros((LENGTH,1))
+
+    for i, cnt1 in enumerate(contours):
+        x = i    
+        if i != LENGTH-1:
+            for j, cnt2 in enumerate(contours[i+1:]):
+                x = x + 1
+                dist = find_if_close(cnt1, cnt2)
+                if dist == True:
+                    val = min(status[i],status[x])
+                    status[x] = status[i] = val
+                else:
+                    if status[x] == status[i]:
+                        status[x] = i + 1
+
+    unified = []
+    r_text = []
+    maximum = int(status.max())+1
+
+    #print status
+
+
+
+    for i in xrange(maximum):
+        pos = np.where(status == i)[0]
+        if pos.size != 0:
+            cont = np.vstack(contours[i] for i in pos)
+            hull = cv2.convexHull(cont)
+            unified.append(hull)
+
+            # Angle of one of the contours
+            # todo - need to calc avg angle of all joined contours
+            rect = cv2.minAreaRect(contours[i])
+            ((x1,y1),(w1,h1),angle) = rect
+            #print rect
+        
+            box = cv2.cv.BoxPoints(rect)
+            box = np.int0(box)
+            #cv2.drawContours(im,[box],0,(0,255,0),2)
+
+            # Bounding Rect of joined contours
+            [x,y,w,h] = cv2.boundingRect(hull)
+            cv2.rectangle(im,(x,y),(x+w,y+h),(0,0,255),2)
+
+            # Print angle to the source image
+            #font = cv2.FONT_HERSHEY_SIMPLEX
+            #cv2.putText(im, str(int(angle)) ,(int((x+w)/2), int((y+h)/2)), font, 1,(0,0,255),2)
+
+            # Crop joined contours image
+            im_crop = im_thresh[y:y+h, x:x+w]
+
+            # Rotate cropped image to angle
+            if rotate_image < 1:
+                angle = 0
+            im_crop_rotated = rotate_about_center(im_crop, angle)
+            cv2.imwrite("croped.jpg", im_crop_rotated)
+        
+            # Text recognition
+            txt = read_image()
+            r_text.append(txt)
+        
+            cv2.imshow('croped', im_crop_rotated)
+            key = cv2.waitKey(0)
+
+            degrees = [90, 180,  270]
+
+            if rotate_image_clockwize:
+                for index in range(len(degrees)):
+                    #print 'angle :', degrees[index]
+
+                    im_crop_rotated_to_angle = rotate_about_center(im_crop_rotated, degrees[index])
+                    cv2.imwrite("croped.jpg", im_crop_rotated_to_angle)
+            
+                    #Text recognition
+                    txt = read_image()
+                    r_text.append(txt)
+
+                    #cv2.imshow('rotated', im_crop_rotated_to_angle)
+                    #key = cv2.waitKey(0)
+
+        
+    # Draw hull of contours
+    cv2.drawContours(im, unified, -1, (0, 255, 0),2)
+
+    #cv2.drawContours(thresh,unified,-1,255,-1)
+
+    print r_text
+
+    for str_val in r_text:
+    
+        if is_numeric(str_val):
+            print 'Detected number: ', str_val
+
+        
+    print "complete"
+
+    cv2.imshow('final', im)
+    key = cv2.waitKey(0)
+
+read_text_by_image()
 
