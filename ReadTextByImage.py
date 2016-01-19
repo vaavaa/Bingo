@@ -1,4 +1,4 @@
-import sys
+#import sys
 import numpy as np
 import cv2
 import math
@@ -6,16 +6,16 @@ import math
 from pytesser import *
 from PIL import Image
 
-thresh_val = 45
-contour_distance = 50
+thresh_val = 130
+contour_distance = 10
 ignor_hierarchy = 0
-contour_area = 2500
+contour_area = 100
 
 rotate_image = 1
 rotate_image_clockwize = 1
 
-img_name = 'IMG_20151225_152224.jpg'
-img_name = 'IMG_20151225_152236.jpg'
+img_name = '10.jpg'
+img_name = 'camera21.jpg'
 #img_name = 'IMG_20151225_152213.jpg'
 #img_name = '3480087_7943.jpg'
 #img_name = 'Captcha.png'
@@ -39,6 +39,15 @@ def read_image(image_name = 'croped.jpg'):
     txt = txt.strip('\n')
     txt = txt.strip()
     txt = txt.lstrip()
+
+    cv_im = cv2.imread(image_name)
+    height, width, channels = cv_im.shape
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(cv_im, txt ,(int(0), int(20)), font, 0.8,(0,0,255),2)
+
+    #cv2.imshow('rotated', cv_im)
+    #key = cv2.waitKey(0)
+    cv2.imwrite(image_name, cv_im)
     return txt
 
 def find_if_close(cnt1, cnt2):
@@ -162,7 +171,7 @@ def read_text_by_image():
     #print hierarchy
 
 
-    cnts = filter_contours(contours, hierarchy)
+    #cnts = filter_contours(contours, hierarchy)
     contours = filter_contours(contours, hierarchy, contour_area)
 
     LENGTH = len(contours)
@@ -221,26 +230,28 @@ def read_text_by_image():
             if rotate_image < 1:
                 angle = 0
             im_crop_rotated = rotate_about_center(im_crop, angle)
-            cv2.imwrite("croped.jpg", im_crop_rotated)
+            im_rotated_name = "im_crop_rotated_" + str(i) + ".jpg"
+
+            cv2.imwrite(im_rotated_name, im_crop_rotated)
         
             # Text recognition
-            txt = read_image()
+            txt = read_image(im_rotated_name)
             r_text.append(txt)
         
-            cv2.imshow('croped', im_crop_rotated)
-            key = cv2.waitKey(0)
+            #cv2.imshow('croped', im_crop_rotated)
+            #key = cv2.waitKey(0)
 
             degrees = [90, 180,  270]
 
             if rotate_image_clockwize:
                 for index in range(len(degrees)):
-                    #print 'angle :', degrees[index]
+                    new_im_name = "im_rotated_to_" + str(degrees[index]) + "_" + str(i) + ".jpg"
 
-                    im_crop_rotated_to_angle = rotate_about_center(im_crop_rotated, degrees[index])
-                    cv2.imwrite("croped.jpg", im_crop_rotated_to_angle)
+                    im_rotated_to_angle = rotate_about_center(im_crop_rotated, degrees[index])
+                    cv2.imwrite(new_im_name, im_rotated_to_angle)
             
                     #Text recognition
-                    txt = read_image()
+                    txt = read_image(new_im_name)
                     r_text.append(txt)
 
                     #cv2.imshow('rotated', im_crop_rotated_to_angle)
@@ -266,4 +277,3 @@ def read_text_by_image():
     key = cv2.waitKey(0)
 
 read_text_by_image()
-
