@@ -1,4 +1,6 @@
-#import sys
+import sys, getopt
+import os.path
+import MySQLdb
 import numpy as np
 import cv2
 import math
@@ -6,19 +8,49 @@ import math
 from pytesser import *
 from PIL import Image
 
+
 thresh_val = 130
 contour_distance = 10
 ignor_hierarchy = 0
 contour_area = 100
+debug_mode = 1
 
 rotate_image = 1
 rotate_image_clockwize = 1
 
-img_name = '10.jpg'
-img_name = 'camera21.jpg'
-#img_name = 'IMG_20151225_152213.jpg'
-#img_name = '3480087_7943.jpg'
-#img_name = 'Captcha.png'
+output_img_name = 'final.jpg'
+
+input_img_name = '10.jpg'
+input_img_name = 'camera21.jpg'
+#input_img_name = 'IMG_20151225_152213.jpg'
+#input_img_name = '3480087_7943.jpg'
+#input_img_name = 'Captcha.png'
+
+
+def write_num_to_db():
+    db = MySQLdb.connect(host="localhost",    # your host, usually localhost
+                     user="john",         # your username
+                     passwd="megajonhy",  # your password
+                     db="jonhydb")        # name of the data base
+
+    # you must create a Cursor object. It will let
+    #  you execute all the queries you need
+    cur = db.cursor()
+
+    # Use all the SQL you like
+    cur.execute("SELECT * FROM YOUR_TABLE_NAME")
+
+    '''
+    # print all the first cell of all the rows
+    for row in cur.fetchall():
+        print row[0]
+    '''
+    db.close()
+
+#Filter numbers from 0 to 36
+def filter_numbers(numbs):
+    f_numbs = [c for c in numbs if  c >= 0 and c <=36]
+    return f_numbs
 
 def is_numeric(s):
     # Returns True for all non-unicode numbers
@@ -143,10 +175,35 @@ def rotate_about_center(src, angle, scale=1.):
     rot_mat[1,2] += rot_move[1]
     return cv2.warpAffine(src, rot_mat, (int(math.ceil(nw)), int(math.ceil(nh))), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255, 0))
 
-def read_text_by_image():
-    im = cv2.imread(img_name)
+def read_text_by_image(argv):
+    sys_exit_code = 0
+    input_img_name = ""
+    output_img_name = ""
 
-    im3 = im.copy()
+    try:
+        opts, args = getopt.getopt(argv,"hi:o:",["ifile=","ofile="])
+    except getopt.GetoptError:
+        print 'read_text_by_image.py -i <inputfile> -o <outputfile>'
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print 'read_text_by_image.py -i <inputfile> -o <outputfile>'
+            sys.exit(2)
+        elif opt in ("-i", "--ifile"):
+            input_img_name = arg
+        elif opt in ("-o", "--ofile"):
+            output_img_name = arg
+
+    if not os.path.isfile(input_img_name):
+        print 'input file ' + input_img_name + ' not exists'
+        sys.exit(2)
+
+    if not os.path.isfile(output_img_name):
+        output_img_name = "final.jpg"
+
+    im = cv2.imread(input_img_name)
+
+    #im3 = im.copy()
 
     gray = cv2.cvtColor(im,cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray,(5, 5), 0)
@@ -157,9 +214,10 @@ def read_text_by_image():
     
     #thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     _,thresh=cv2.threshold(blur, thresh_val, 255, cv2.THRESH_BINARY)
-    
-    cv2.imshow('thresh',thresh)
-    key = cv2.waitKey(0)
+
+    if debug_mode:
+        cv2.imshow('thresh', thresh)
+        key = cv2.waitKey(0)
 
     im_thresh = thresh.copy()
     #cv2.imshow('norm1',im4)
@@ -171,7 +229,6 @@ def read_text_by_image():
     #print hierarchy
 
 
-    #cnts = filter_contours(contours, hierarchy)
     contours = filter_contours(contours, hierarchy, contour_area)
 
     LENGTH = len(contours)
@@ -196,8 +253,6 @@ def read_text_by_image():
 
     #print status
 
-
-
     for i in xrange(maximum):
         pos = np.where(status == i)[0]
         if pos.size != 0:
@@ -206,13 +261,13 @@ def read_text_by_image():
             unified.append(hull)
 
             # Angle of one of the contours
-            # todo - need to calc avg angle of all joined contours
+            #todo - need to calc avg angle of all joined contours
             rect = cv2.minAreaRect(contours[i])
             ((x1,y1),(w1,h1),angle) = rect
             #print rect
         
             box = cv2.cv.BoxPoints(rect)
-            box = np.int0(box)
+            #box = np.int0(box)
             #cv2.drawContours(im,[box],0,(0,255,0),2)
 
             # Bounding Rect of joined contours
@@ -263,17 +318,33 @@ def read_text_by_image():
 
     #cv2.drawContours(thresh,unified,-1,255,-1)
 
-    print r_text
+    #print r_text
 
+    l_numbs = []
     for str_val in r_text:
     
         if is_numeric(str_val):
-            print 'Detected number: ', str_val
+            #print 'Detected number: ', str_val
+            l_numbs.append(int(str_val))
+            sys_exit_code = 0
+        else:
+            sys_exit_code = -1
+    l_numbs = filter_numbers(l_numbs)
 
-        
+    print l_numbs
     print "complete"
 
-    cv2.imshow('final', im)
-    key = cv2.waitKey(0)
+    cv2.imwrite(output_img_name,im)
 
-read_text_by_image()
+    if debug_mode:
+        cv2.imshow("final", im)
+        key = cv2.waitKey(0)
+
+    sys.exit(sys_exit_code)
+
+
+
+if __name__ == "__main__":
+
+   read_text_by_image(sys.argv[1:])
+
