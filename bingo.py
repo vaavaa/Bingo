@@ -1,6 +1,6 @@
 import sys, getopt
 import os.path
-import MySQLdb
+import MySQLdb #http://sourceforge.net/projects/mysql-python/files/latest/download?source=files
 import numpy as np
 import cv2
 import math
@@ -18,13 +18,8 @@ debug_mode = 1
 rotate_image = 1
 rotate_image_clockwize = 1
 
-output_img_name = 'final.jpg'
 
-input_img_name = '10.jpg'
-input_img_name = 'camera21.jpg'
-#input_img_name = 'IMG_20151225_152213.jpg'
-#input_img_name = '3480087_7943.jpg'
-#input_img_name = 'Captcha.png'
+i_img_name = 'camera7.jpg'
 
 
 def write_num_to_db():
@@ -195,8 +190,9 @@ def read_text_by_image(argv):
             output_img_name = arg
 
     if not os.path.isfile(input_img_name):
-        print 'input file ' + input_img_name + ' not exists'
-        sys.exit(2)
+        #print 'input file ' + input_img_name + ' not exists'
+        input_img_name = i_img_name
+        #sys.exit(2)
 
     if not os.path.isfile(output_img_name):
         output_img_name = "final.jpg"
