@@ -7,17 +7,23 @@ import math
 from pytesser import *
 from PIL import Image
 
-thresh_val = 120
+thresh_val = 160
 contour_distance = 10
 ignor_hierarchy = 1
-contour_area = 1000
+min_contour_area = 200
+max_contour_area = 2000
+
+min_hull_area = 1300
+max_hull_area = 4000
+
 debug_mode = 1
 
 rotate_image = 1
 rotate_image_clockwize = 1
 
-i_img_name = 'IMG_2228_2.JPG'
-
+i_img_name = 'camera28_1.jpg'
+#i_img_name = 'camera32.jpg'
+#i_img_name = 'camera07.jpg'
 
 def update_progress(progress):
     barLength = 10  # Modify this to change the length of the progress bar
@@ -118,33 +124,33 @@ def find_if_close(cnt1, cnt2):
                 return False
 
 
-def is_in_area_and_level(cnt, area, lvl):
+def is_in_area_and_level(cnt, lvl):
     ct = cnt[0]
     hy = cnt[1]
 
     if hy[3] == 0:
-        if cv2.contourArea(ct) > area:
+        if cv2.contourArea(ct) >= min_contour_area and cv2.contourArea(ct) <= max_contour_area:
             # print cv2.contourArea(ct)
             return 1
     else:
         return 0
 
 
-def is_in_area(cnt, area):
+def is_in_area(cnt):
     ct = cnt[0]
 
-    if cv2.contourArea(ct) > area:
-        # print cv2.contourArea(ct)
+    if cv2.contourArea(ct) >= min_contour_area and cv2.contourArea(ct) <= max_contour_area:
+        print cv2.contourArea(ct)
         return 1
     else:
         return 0
 
 
-def filter_contours(contours, hierarchy, s=3000, lvl=0):
+def filter_contours(contours, hierarchy, lvl=0):
     if ignor_hierarchy:
-        cnts = [c[0] for c in zip(contours, hierarchy) if is_in_area(c, s) > 0]
+        cnts = [c[0] for c in zip(contours, hierarchy) if is_in_area(c) > 0]
     else:
-        cnts = [c[0] for c in zip(contours, hierarchy) if is_in_area_and_level(c, s, lvl) > 0]
+        cnts = [c[0] for c in zip(contours, hierarchy) if is_in_area_and_level(c, lvl) > 0]
 
     # print len(cnts)
     return (cnts)
@@ -239,6 +245,13 @@ def read_text_by_image(argv):
 
     im = cv2.imread(input_img_name)
 
+    img_height, img_width, a = im.shape
+    print "Source image is", img_width, img_height, a
+
+    if img_width > 1000:
+        im = cv2.resize(im, (0, 0), fx=0.5, fy=0.5)
+        img_height, img_width, a = im.shape
+        print "Resized to", img_width, img_height, a
     # im3 = im.copy()
 
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
@@ -264,8 +277,8 @@ def read_text_by_image(argv):
     hierarchy = hierarchy[0]
     # print hierarchy
 
-
-    contours = filter_contours(contours, hierarchy, contour_area)
+    print "Countors count: ", str(len(contours))
+    contours = filter_contours(contours, hierarchy)
 
     LENGTH = len(contours)
     print "Countors filtred: ", str(LENGTH)
@@ -301,9 +314,10 @@ def read_text_by_image(argv):
 
             # Angle of one of the contours
             # todo - need to calc avg angle of all joined contours
-            rect = cv2.minAreaRect(contours[i])
+            # rect = cv2.minAreaRect(contours[i])
+            rect = cv2.minAreaRect(hull)
             ((x1, y1), (w1, h1), angle) = rect
-            # print rect
+
 
             box = cv2.cv.BoxPoints(rect)
             # box = np.int0(box)
@@ -313,65 +327,66 @@ def read_text_by_image(argv):
             [x, y, w, h] = cv2.boundingRect(hull)
             cv2.rectangle(im, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
-            # Print angle to the source image
-            # font = cv2.FONT_HERSHEY_SIMPLEX
-            # cv2.putText(im, str(int(angle)) ,(int((x+w)/2), int((y+h)/2)), font, 1,(0,0,255),2)
+            hull_area = w * h
 
-            # Crop joined contours image
-            im_crop = im_thresh[y:y + h, x:x + w]
+            if hull_area >= min_hull_area and hull_area <= max_hull_area and w >= 30 and h >= 30:
+                print hull_area
+                # Print angle to the source image
+                #font = cv2.FONT_HERSHEY_SIMPLEX
+                #cv2.putText(im, str(int(angle)), int(x1), int(y1), font, 1, (0, 0, 255), 2)
+                print rect
+                # Crop joined contours image
+                im_crop = im_thresh[y:y + h, x:x + w]
 
-            # Rotate cropped image to angle
-            if rotate_image < 1:
-                angle = 0
-            im_crop_rotated = rotate_about_center(im_crop, angle)
-            im_rotated_name = "im_crop_rotated_" + str(i) + ".jpg"
+                # Rotate cropped image to angle
+                if rotate_image < 1:
+                    angle = 0
+                im_crop_rotated = rotate_about_center(im_crop, angle)
+                im_rotated_name = "rotated_" + str(i) + "_deg_" + str(angle) + ".jpg"
 
-            cv2.imwrite(im_rotated_name, im_crop_rotated)
+                cv2.imwrite(im_rotated_name, im_crop_rotated)
 
-            # Text recognition
-            txt = read_image(im_rotated_name)
-            r_text.append(txt)
+                # Text recognition
+                txt = read_image(im_rotated_name)
+                r_text.append(txt)
 
-            # cv2.imshow('croped', im_crop_rotated)
-            # key = cv2.waitKey(0)
+                # cv2.imshow('croped', im_crop_rotated)
+                # key = cv2.waitKey(0)
 
-            degrees = [90, 180, 270]
+                degrees = [90, 180, 270]
 
-            if rotate_image_clockwize:
-                for index in range(len(degrees)):
-                    new_im_name = "im_rotated_to_" + str(degrees[index]) + "_" + str(i) + ".jpg"
+                if rotate_image_clockwize:
+                    for index in range(len(degrees)):
+                        new_im_name = "rotated_" + str(i) + "_deg_" + str(degrees[index]) + ".jpg"
 
-                    im_rotated_to_angle = rotate_about_center(im_crop_rotated, degrees[index])
-                    cv2.imwrite(new_im_name, im_rotated_to_angle)
+                        im_rotated_to_angle = rotate_about_center(im_crop_rotated, degrees[index])
+                        cv2.imwrite(new_im_name, im_rotated_to_angle)
 
-                    # Text recognition
-                    txt = read_image(new_im_name)
-                    r_text.append(txt)
+                        # Text recognition
+                        txt = read_image(new_im_name)
+                        r_text.append(txt)
 
-                    # cv2.imshow('rotated', im_crop_rotated_to_angle)
-                    # key = cv2.waitKey(0)
+                        # cv2.imshow('rotated', im_crop_rotated_to_angle)
+                        # key = cv2.waitKey(0)
 
     # Draw hull of contours
     cv2.drawContours(im, unified, -1, (0, 255, 0), 2)
 
     # cv2.drawContours(thresh,unified,-1,255,-1)
 
-    # print r_text
+    print r_text
 
     l_numbs = []
     for str_val in r_text:
 
-        if is_numeric(str_val):
-            # print 'Detected number: ', str_val
-            try:
-                l_numbs.append(int(str_val))
-                sys_exit_code = 0
-                break
-            except ValueError:
-                print "Not integer value:", str_val
+        try:
+            l_numbs.append(int(str_val))
+            sys_exit_code = 0
 
-        else:
+        except ValueError:
             sys_exit_code = -1
+            # print "Not integer value:", str_val
+
     l_numbs = filter_numbers(l_numbs)
 
     print l_numbs
