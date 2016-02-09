@@ -2,12 +2,16 @@ import sys, getopt
 import os.path
 import MySQLdb  # http://sourceforge.net/projects/mysql-python/files/latest/download?source=files
 import numpy as np
+import time
 import cv2
 import math
 from pytesser import *
 from PIL import Image
 
-thresh_val = 160
+start_time = 0
+
+thresh_val = 170
+reset_thresh_val = 60
 contour_distance = 10
 ignor_hierarchy = 1
 min_contour_area = 200
@@ -16,14 +20,50 @@ max_contour_area = 2000
 min_hull_area = 1300
 max_hull_area = 4000
 
-debug_mode = 1
+debug_mode = 0
 
 rotate_image = 1
 rotate_image_clockwize = 1
 
-i_img_name = 'camera28_1.jpg'
-#i_img_name = 'camera32.jpg'
-#i_img_name = 'camera07.jpg'
+i_img_name = 'camera02.jpg'
+i_img_name = 'camera03.jpg'
+i_img_name = 'camera03_1.jpg'
+i_img_name = 'camera03_2.jpg'
+i_img_name = 'camera04.jpg'
+i_img_name = 'camera05.jpg'
+i_img_name = 'camera07.jpg'
+i_img_name = 'camera08.jpg'
+i_img_name = 'camera08_1.jpg'
+i_img_name = 'camera09.jpg'
+# i_img_name = 'camera15.jpg'
+i_img_name = 'camera16.jpg'
+i_img_name = 'camera16_1.jpg'
+i_img_name = 'camera18.jpg'
+# i_img_name = 'camera19.jpg'
+i_img_name = 'camera19_1.jpg'
+i_img_name = 'camera19_2.jpg'
+# i_img_name = 'camera20.jpg'
+i_img_name = 'camera26.jpg'
+i_img_name = 'camera28.jpg'
+i_img_name = 'camera29.jpg'
+i_img_name = 'camera29.jpg'
+i_img_name = 'camera31.jpg'
+i_img_name = 'camera32.jpg'
+i_img_name = 'camera33.jpg'
+i_img_name = 'camera36_1.jpg'
+
+i_img_name = 'camera03_1.jpg'  # Kosyak blya - 23 govorit
+
+
+def result_number(result):
+    prev = result[0]
+    for index in range(len(result)):
+        if prev != result[index]:
+            return -1
+        prev = result[index]
+
+    return prev
+
 
 def update_progress(progress):
     barLength = 10  # Modify this to change the length of the progress bar
@@ -65,7 +105,8 @@ def write_num_to_db(win_number):
     cur = db.cursor()
 
     # Use all the SQL you like
-    cur.execute("UPDATE timer SET WinNumber = " + win_number + " WHERE Status = 0")
+    cur.execute("UPDATE timer SET WinNumber = " + str(win_number) + " WHERE Status = 0")
+    db.commit()
 
     '''
     # print all the first cell of all the rows
@@ -73,6 +114,7 @@ def write_num_to_db(win_number):
         print row[0]
     '''
     db.close()
+    print "Table 'timer' updated, WinNumber = ", win_number
 
 
 # Filter numbers from 0 to 36
@@ -140,7 +182,7 @@ def is_in_area(cnt):
     ct = cnt[0]
 
     if cv2.contourArea(ct) >= min_contour_area and cv2.contourArea(ct) <= max_contour_area:
-        print cv2.contourArea(ct)
+        # print cv2.contourArea(ct)
         return 1
     else:
         return 0
@@ -221,6 +263,8 @@ def read_text_by_image(argv):
     input_img_name = ""
     output_img_name = ""
 
+    print "thresh_val = ", thresh_val
+
     try:
         opts, args = getopt.getopt(argv, "hi:o:", ["ifile=", "ofile="])
     except getopt.GetoptError:
@@ -246,13 +290,20 @@ def read_text_by_image(argv):
     im = cv2.imread(input_img_name)
 
     img_height, img_width, a = im.shape
-    print "Source image is", img_width, img_height, a
+    print "Source image is", img_width, img_height, a, input_img_name
 
     if img_width > 1000:
         im = cv2.resize(im, (0, 0), fx=0.5, fy=0.5)
-        img_height, img_width, a = im.shape
-        print "Resized to", img_width, img_height, a
+
     # im3 = im.copy()
+
+    img_height, img_width, a = im.shape
+    print "Resized to", img_width, img_height, a
+
+    im = im[180:200 + 180, 150:200 + 150]
+
+    img_height, img_width, a = im.shape
+    print "Croped to", img_width, img_height, a
 
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -263,6 +314,7 @@ def read_text_by_image(argv):
 
     # thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     _, thresh = cv2.threshold(blur, thresh_val, 255, cv2.THRESH_BINARY)
+    cv2.imwrite("thresh.jpg", thresh)
 
     if debug_mode:
         cv2.imshow('thresh', thresh)
@@ -276,12 +328,13 @@ def read_text_by_image(argv):
     # print hierarchy
     hierarchy = hierarchy[0]
     # print hierarchy
-
-    print "Countors count: ", str(len(contours))
+    if debug_mode:
+        print "Countors count: ", str(len(contours))
     contours = filter_contours(contours, hierarchy)
 
     LENGTH = len(contours)
-    print "Countors filtred: ", str(LENGTH)
+    if debug_mode:
+        print "Countors filtred: ", str(LENGTH)
     status = np.zeros((LENGTH, 1))
 
     for i, cnt1 in enumerate(contours):
@@ -318,7 +371,6 @@ def read_text_by_image(argv):
             rect = cv2.minAreaRect(hull)
             ((x1, y1), (w1, h1), angle) = rect
 
-
             box = cv2.cv.BoxPoints(rect)
             # box = np.int0(box)
             # cv2.drawContours(im,[box],0,(0,255,0),2)
@@ -330,11 +382,11 @@ def read_text_by_image(argv):
             hull_area = w * h
 
             if hull_area >= min_hull_area and hull_area <= max_hull_area and w >= 30 and h >= 30:
-                print hull_area
+                # print 'hull_area:', hull_area
                 # Print angle to the source image
-                #font = cv2.FONT_HERSHEY_SIMPLEX
-                #cv2.putText(im, str(int(angle)), int(x1), int(y1), font, 1, (0, 0, 255), 2)
-                print rect
+                # font = cv2.FONT_HERSHEY_SIMPLEX
+                # cv2.putText(im, str(int(angle)), int(x1), int(y1), font, 1, (0, 0, 255), 2)
+                # print rect
                 # Crop joined contours image
                 im_crop = im_thresh[y:y + h, x:x + w]
 
@@ -342,7 +394,7 @@ def read_text_by_image(argv):
                 if rotate_image < 1:
                     angle = 0
                 im_crop_rotated = rotate_about_center(im_crop, angle)
-                im_rotated_name = "rotated_" + str(i) + "_deg_" + str(angle) + ".jpg"
+                im_rotated_name = "im_crop_rotated_" + str(i) + ".jpg"
 
                 cv2.imwrite(im_rotated_name, im_crop_rotated)
 
@@ -357,7 +409,7 @@ def read_text_by_image(argv):
 
                 if rotate_image_clockwize:
                     for index in range(len(degrees)):
-                        new_im_name = "rotated_" + str(i) + "_deg_" + str(degrees[index]) + ".jpg"
+                        new_im_name = "im_rotated_to_" + str(degrees[index]) + "_" + str(i) + ".jpg"
 
                         im_rotated_to_angle = rotate_about_center(im_crop_rotated, degrees[index])
                         cv2.imwrite(new_im_name, im_rotated_to_angle)
@@ -374,14 +426,15 @@ def read_text_by_image(argv):
 
     # cv2.drawContours(thresh,unified,-1,255,-1)
 
-    print r_text
+    if debug_mode:
+        print r_text
 
     l_numbs = []
     for str_val in r_text:
 
         try:
-            l_numbs.append(int(str_val))
-            sys_exit_code = 0
+            if len(str_val) > 1:
+                l_numbs.append(int(str_val))
 
         except ValueError:
             sys_exit_code = -1
@@ -389,8 +442,18 @@ def read_text_by_image(argv):
 
     l_numbs = filter_numbers(l_numbs)
 
-    print l_numbs
-    print "complete"
+    if len(l_numbs) > 0:
+        res_numbr = result_number(l_numbs)
+
+        print "Result list:", l_numbs
+        print "Result number:", res_numbr
+
+        if res_numbr != -1:
+            write_num_to_db(res_numbr)
+    else:
+        res_numbr = -1
+        print "Result list:", 0
+        print "Result number:", res_numbr
 
     cv2.imwrite(output_img_name, im)
 
@@ -398,8 +461,31 @@ def read_text_by_image(argv):
         cv2.imshow("final", im)
         key = cv2.waitKey(0)
 
-    sys.exit(sys_exit_code)
+    return res_numbr
 
 
 if __name__ == "__main__":
-    read_text_by_image(sys.argv[1:])
+    start_time = time.clock()
+
+    args = sys.argv[1:]
+    res_numbr = read_text_by_image(args)
+
+    thresh_val -= reset_thresh_val
+    while res_numbr < 0:
+        thresh_val += 10
+        res_numbr = read_text_by_image(args)
+
+    """
+    first_result = res_numbr
+    res_numbr = -1
+
+    thresh_val += reset_thresh_val
+    while res_numbr < 0:
+        thresh_val -= 10
+        res_numbr = read_text_by_image(args)
+
+    second_result = res_numbr
+    print  first_result, second_result
+    """
+
+    print "Complete in ", round(time.clock() - start_time, 2), "seconds"
