@@ -10,6 +10,10 @@
           <option name="url" value="https://github.com/vaavaa/json2view.git" />
           <option name="userName" value="" />
         </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="https://github.com/vaavaa/FormMaster.git" />
+          <option name="userName" value="" />
+        </UrlAndUserName>
       </list>
     </option>
     <option name="cloneParentDir" value="C:\Android\projects\" />
