@@ -12,6 +12,6 @@
         </UrlAndUserName>
       </list>
     </option>
-    <option name="cloneParentDir" value="C:\Android\projects\json2view" />
+    <option name="cloneParentDir" value="C:\Android\projects\" />
   </component>
 </application>
