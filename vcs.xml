@@ -22,6 +22,10 @@
           <option name="url" value="https://github.com/vaavaa/Android-Diagonal-Cut-View.git" />
           <option name="userName" value="" />
         </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="https://github.com/vaavaa/android-okhttp-network-monitor.git" />
+          <option name="userName" value="" />
+        </UrlAndUserName>
       </list>
     </option>
     <option name="cloneParentDir" value="C:\Android\projects\" />
